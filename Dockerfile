@@ -29,3 +29,6 @@ RUN php artisan cache:clear
 EXPOSE $PORT
 
 CMD php artisan serve --host=0.0.0.0 --port=$PORT
+
+
+
