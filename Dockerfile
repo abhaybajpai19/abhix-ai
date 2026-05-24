@@ -18,9 +18,10 @@ WORKDIR /app
 
 COPY . .
 
-RUN composer install --no-dev --optimize-autoloader
+RUN composer install --optimize-autoloader
 
 RUN npm install
+RUN npm install tailwindcss @tailwindcss/vite --save-dev
 RUN npm run build
 
 RUN php artisan config:clear
@@ -29,6 +30,3 @@ RUN php artisan cache:clear
 EXPOSE $PORT
 
 CMD php artisan serve --host=0.0.0.0 --port=$PORT
-
-
-
