@@ -135,215 +135,96 @@
     @include('components.settings-modal')
     @include('components.toast')
 
-    <script>
-        // ----- Sidebar toggle (mobile) -----
-        const sidebar = document.getElementById('app-sidebar');
-        const backdrop = document.getElementById('sidebar-backdrop');
-        document.querySelectorAll('[data-toggle="sidebar"]').forEach(b => b.addEventListener('click', () => {
+<script>
+    // ----- Sidebar toggle (mobile) -----
+    const sidebar = document.getElementById('app-sidebar');
+    const backdrop = document.getElementById('sidebar-backdrop');
+
+    document.querySelectorAll('[data-toggle="sidebar"]').forEach(b =>
+        b.addEventListener('click', () => {
             sidebar.classList.toggle('-translate-x-full');
             backdrop.classList.toggle('hidden');
-        }));
-        backdrop?.addEventListener('click', () => {
-            sidebar.classList.add('-translate-x-full');
-            backdrop.classList.add('hidden');
-        });
+        })
+    );
 
-        // ----- Modal helpers -----
-        window.openModal = (id) => {
-            const m = document.getElementById(id);
-            if (!m) return;
-            m.classList.remove('hidden');
-            requestAnimationFrame(() => m.classList.add('opacity-100'));
-        };
-        window.closeModal = (id) => {
-            const m = document.getElementById(id);
-            if (!m) return;
-            m.classList.add('hidden');
-            m.classList.remove('opacity-100');
-        };
-        document.querySelectorAll('[data-open-modal]').forEach(b => b.addEventListener('click', () => openModal(b.dataset.openModal)));
-        document.querySelectorAll('[data-close-modal]').forEach(b => b.addEventListener('click', () => closeModal(b.dataset.closeModal)));
+    backdrop?.addEventListener('click', () => {
+        sidebar.classList.add('-translate-x-full');
+        backdrop.classList.add('hidden');
+    });
 
-        // ----- Toast -----
-        window.showToast = (msg) => {
-            const t = document.getElementById('toast');
-            t.querySelector('[data-toast-msg]').textContent = msg;
-            t.classList.remove('translate-y-10','opacity-0','pointer-events-none');
-            clearTimeout(window.__toastT);
-            window.__toastT = setTimeout(() => t.classList.add('translate-y-10','opacity-0','pointer-events-none'), 2400);
-        };
+    // ----- Modal helpers -----
+    window.openModal = (id) => {
+        const m = document.getElementById(id);
+        if (!m) return;
+        m.classList.remove('hidden');
+        requestAnimationFrame(() => m.classList.add('opacity-100'));
+    };
 
-        // ----- Theme toggle -----
-        document.querySelectorAll('[data-theme-toggle]').forEach(b => b.addEventListener('click', () => {
+    window.closeModal = (id) => {
+        const m = document.getElementById(id);
+        if (!m) return;
+        m.classList.add('hidden');
+        m.classList.remove('opacity-100');
+    };
+
+    document.querySelectorAll('[data-open-modal]').forEach(b =>
+        b.addEventListener('click', () => openModal(b.dataset.openModal))
+    );
+
+    document.querySelectorAll('[data-close-modal]').forEach(b =>
+        b.addEventListener('click', () => closeModal(b.dataset.closeModal))
+    );
+
+    // ----- Toast -----
+    window.showToast = (msg) => {
+        const t = document.getElementById('toast');
+        t.querySelector('[data-toast-msg]').textContent = msg;
+
+        t.classList.remove('translate-y-10', 'opacity-0', 'pointer-events-none');
+
+        clearTimeout(window.__toastT);
+
+        window.__toastT = setTimeout(() => {
+            t.classList.add('translate-y-10', 'opacity-0', 'pointer-events-none');
+        }, 2400);
+    };
+
+    // ----- Theme toggle -----
+    document.querySelectorAll('[data-theme-toggle]').forEach(b =>
+        b.addEventListener('click', () => {
             document.documentElement.classList.toggle('dark');
-            localStorage.setItem('nova-theme', document.documentElement.classList.contains('dark') ? 'dark' : 'light');
-            showToast(document.documentElement.classList.contains('dark') ? 'Dark mode enabled' : 'Light mode enabled');
-        }));
 
-        // ----- Profile dropdown -----
-        const profileBtn = document.getElementById('profile-btn');
-        const profileMenu = document.getElementById('profile-menu');
-        profileBtn?.addEventListener('click', (e) => { e.stopPropagation(); profileMenu.classList.toggle('hidden'); });
-        document.addEventListener('click', () => profileMenu?.classList.add('hidden'));
+            localStorage.setItem(
+                'nova-theme',
+                document.documentElement.classList.contains('dark')
+                    ? 'dark'
+                    : 'light'
+            );
 
-        // ----- Auth modal behavior -----
-        const authPanels = document.querySelectorAll('[data-auth-panel]');
-        const authErrorBoxes = [
-            document.getElementById('auth-login-errors'),
-            document.getElementById('auth-register-errors'),
-            document.getElementById('auth-forgot-errors'),
-        ];
-        const forgotSuccessBox = document.getElementById('auth-forgot-success');
+            showToast(
+                document.documentElement.classList.contains('dark')
+                    ? 'Dark mode enabled'
+                    : 'Light mode enabled'
+            );
+        })
+    );
 
-        function hideAuthMessages() {
-            authErrorBoxes.forEach((box) => {
-                if (!box) return;
-                box.classList.add('hidden');
-                box.textContent = '';
-            });
-            if (forgotSuccessBox) {
-                forgotSuccessBox.classList.add('hidden');
-                forgotSuccessBox.textContent = '';
-            }
-        }
+    // ----- Profile dropdown -----
+    const profileBtn = document.getElementById('profile-btn');
+    const profileMenu = document.getElementById('profile-menu');
 
-        function showAuthPanel(panel) {
-            authPanels.forEach((item) => {
-                item.classList.toggle('hidden', item.dataset.authPanel !== panel);
-            });
-            hideAuthMessages();
-        }
-        window.showAuthPanel = showAuthPanel;
+    profileBtn?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        profileMenu.classList.toggle('hidden');
+    });
 
-        function formatErrors(errors) {
-            if (!errors) return 'Something went wrong. Please try again.';
-            return Object.values(errors).flat().join(' ');
-        }
+    document.addEventListener('click', () => {
+        profileMenu?.classList.add('hidden');
+    });
 
-        async function postAuthForm(url, form) {
-            const formData = new FormData(form);
-            const payload = Object.fromEntries(formData.entries());
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
-                    'Accept': 'application/json',
-                },
-                body: JSON.stringify(payload),
-            });
-
-            const data = await response.json();
-            if (!response.ok) {
-                throw data;
-            }
-
-            return data;
-        }
-
-        function updateAuthUiFromUser(user) {
-            const topbarSignInButton = document.getElementById('topbar-signin-btn');
-            if (topbarSignInButton) topbarSignInButton.classList.add('hidden');
-
-            const avatar = document.getElementById('sidebar-avatar');
-            const name = document.getElementById('sidebar-user-name');
-            const email = document.getElementById('sidebar-user-email');
-            const profileMenuName = document.getElementById('profile-menu-name');
-            const profileMenuEmail = document.getElementById('profile-menu-email');
-            const guestLimitPill = document.getElementById('guest-limit-pill');
-
-            const initials = (user?.name || 'User')
-                .split(' ')
-                .slice(0, 2)
-                .map((part) => part[0] || '')
-                .join('')
-                .toUpperCase();
-
-            if (avatar) avatar.textContent = initials || 'U';
-            if (name) name.textContent = user?.name || 'User';
-            if (email) email.textContent = user?.email || '';
-            if (profileMenuName) profileMenuName.textContent = user?.name || 'User';
-            if (profileMenuEmail) profileMenuEmail.textContent = user?.email || '';
-            if (guestLimitPill) guestLimitPill.classList.add('hidden');
-        }
-
-        document.querySelectorAll('[data-switch-auth]').forEach((button) => {
-            button.addEventListener('click', () => showAuthPanel(button.dataset.switchAuth));
-        });
-
-        document.querySelectorAll('[data-auth-view]').forEach((button) => {
-            button.addEventListener('click', () => {
-                const targetView = button.dataset.authView;
-                if (targetView) showAuthPanel(targetView);
-            });
-        });
-
-        const loginForm = document.getElementById('login-form');
-        loginForm?.addEventListener('submit', async (event) => {
-            event.preventDefault();
-            hideAuthMessages();
-            try {
-                const data = await postAuthForm('{{ route('login') }}', loginForm);
-                updateAuthUiFromUser(data.user);
-                closeModal('auth-modal');
-                showToast(data.message || 'Signed in successfully');
-                window.setTimeout(() => window.location.reload(), 350);
-            } catch (errorData) {
-                const box = document.getElementById('auth-login-errors');
-                if (box) {
-                    box.textContent = formatErrors(errorData.errors);
-                    box.classList.remove('hidden');
-                }
-            }
-        });
-
-        const registerForm = document.getElementById('register-form');
-        registerForm?.addEventListener('submit', async (event) => {
-            event.preventDefault();
-            hideAuthMessages();
-            try {
-                const data = await postAuthForm('{{ route('register') }}', registerForm);
-                updateAuthUiFromUser(data.user);
-                closeModal('auth-modal');
-                closeModal('guest-limit-modal');
-                showToast(data.message || 'Account created successfully');
-                window.setTimeout(() => window.location.reload(), 350);
-            } catch (errorData) {
-                const box = document.getElementById('auth-register-errors');
-                if (box) {
-                    box.textContent = formatErrors(errorData.errors);
-                    box.classList.remove('hidden');
-                }
-            }
-        });
-
-        const forgotForm = document.getElementById('forgot-form');
-        forgotForm?.addEventListener('submit', async (event) => {
-            event.preventDefault();
-            hideAuthMessages();
-            try {
-                const data = await postAuthForm('{{ route('password.email') }}', forgotForm);
-                if (forgotSuccessBox) {
-                    forgotSuccessBox.textContent = data.message || 'Reset link sent.';
-                    forgotSuccessBox.classList.remove('hidden');
-                }
-            } catch (errorData) {
-                const box = document.getElementById('auth-forgot-errors');
-                if (box) {
-                    box.textContent = formatErrors(errorData.errors);
-                    box.classList.remove('hidden');
-                }
-            }
-        });
-
-        showAuthPanel('login');
-
-        const queryPanel = new URLSearchParams(window.location.search).get('auth');
-        if (queryPanel && ['login', 'register', 'forgot'].includes(queryPanel)) {
-            showAuthPanel(queryPanel);
-            openModal('auth-modal');
-        }
-    </script>
+    // ----- Auth Disabled -----
+    console.log('Auth routes disabled');
+</script>
     @stack('scripts')
 </body>
 </html>
