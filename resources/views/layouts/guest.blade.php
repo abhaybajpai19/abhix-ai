@@ -4,9 +4,10 @@
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="csrf-token" content="{{ csrf_token() }}">
-        <link rel="icon" type="image/png" href="/logo.png">
+        <link rel="icon" href="/favicon.ico">
 
-        <title>{{ config('app.name', 'Laravel') }}</title>
+        <title>Abhix AI - AI Assistant</title>
+        <meta name="description" content="Abhix AI is a powerful AI assistant built with Laravel.">
 
         <!-- Fonts -->
         <link rel="preconnect" href="https://fonts.bunny.net">
@@ -16,6 +17,7 @@
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     </head>
     <body class="font-sans text-gray-900 antialiased">
+        <h1 class="sr-only">Welcome to Abhix AI</h1>
         <div class="min-h-screen flex flex-col sm:justify-center items-center pt-6 sm:pt-0 bg-gray-100">
             <div>
                 <a href="/">

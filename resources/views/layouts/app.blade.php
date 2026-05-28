@@ -4,9 +4,9 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>@yield('title', 'ABX GPT — Your Intelligent Assistant')</title>
-    <meta name="description" content="ABX GPT — a free AI chat assistant." />
-    <link rel="icon" type="image/png" href="/logo.png">
+    <title>@yield('title', 'Abhix AI - AI Assistant')</title>
+    <meta name="description" content="Abhix AI is a powerful AI assistant built with Laravel.">
+    <link rel="icon" href="/favicon.ico">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
