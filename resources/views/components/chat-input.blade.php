@@ -74,6 +74,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let stopRequested = false;
     let isGenerating = false;
     let currentMode = 'text';
+    let greetingRequestId = 0;
 
     function scrollToBottom() {
         if (!chatScrollContainer) return;
@@ -112,12 +113,22 @@ document.addEventListener('DOMContentLoaded', () => {
         guestCount.textContent = String(Math.max(0, current - 1));
     }
 
+    function hasConversationMessages() {
+        return !!messagesContainer?.querySelector('[data-chat-message]');
+    }
+
     function setTemporaryChatUi(active) {
         window.isTemporaryChat = active;
         temporaryChatBanner?.classList.toggle('hidden', !active);
         temporaryChatBtn?.classList.toggle('!border-violet-400/50', active);
         temporaryChatBtn?.classList.toggle('!bg-violet-500/15', active);
         temporaryChatBtn?.classList.toggle('!text-violet-100', active);
+    }
+
+    function ensureTemporaryChatUi() {
+        if (window.isTemporaryChat) {
+            setTemporaryChatUi(true);
+        }
     }
 
     function pushEphemeralExchange(userMessage, assistantMessage) {
@@ -145,15 +156,21 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     window.startTemporaryChat = function() {
+        greetingRequestId++;
         window.currentChatId = null;
         window.ephemeralHistory = [];
         setTemporaryChatUi(true);
+        messagesContainer.innerHTML = '';
         renderNewChatGreeting();
     };
 
     window.exitTemporaryChat = function() {
+        greetingRequestId++;
         setTemporaryChatUi(false);
-        window.startNewChat();
+        window.currentChatId = null;
+        window.ephemeralHistory = [];
+        messagesContainer.innerHTML = '';
+        renderNewChatGreeting();
     };
 
     function setMode(mode) {
@@ -225,11 +242,22 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function renderNewChatGreeting() {
+        const requestId = ++greetingRequestId;
+
         const greeting = await fetchNewGreeting();
+
+        if (requestId !== greetingRequestId) {
+            return;
+        }
+
+        if (hasConversationMessages()) {
+            return;
+        }
+
         const bubbleId = 'greet-' + Date.now();
 
         messagesContainer.innerHTML = `
-            <div class="flex justify-center items-start pt-8 md:pt-12 mb-4">
+            <div class="flex justify-center items-start pt-8 md:pt-12 mb-4" data-greeting-only>
                 <div id="${bubbleId}" class="bg-ink-800/90 text-white px-5 py-3 rounded-2xl max-w-xl whitespace-pre-wrap shadow-lg text-center"></div>
             </div>
         `;
@@ -240,12 +268,23 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // START NEW CHAT
+    // START NEW CHAT (stays in temporary mode if already active)
     window.startNewChat = function() {
-        setTemporaryChatUi(false);
+        greetingRequestId++;
+        const keepTemporary = window.isTemporaryChat;
+
+        if (!keepTemporary) {
+            setTemporaryChatUi(false);
+        }
+
         window.currentChatId = null;
         window.ephemeralHistory = [];
+        messagesContainer.innerHTML = '';
         renderNewChatGreeting();
+
+        if (keepTemporary) {
+            ensureTemporaryChatUi();
+        }
     }
 
     // LOAD OLD CHAT
@@ -317,6 +356,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (currentMode === 'image' && !message && !imageFile) return;
         if (currentMode === 'text' && !message) return;
 
+        messagesContainer.querySelector('[data-greeting-only]')?.remove();
+
         // USER MESSAGE
         if (currentMode === 'image' && imageFile) {
             const imageUrl = await readFileAsDataUrl(imageFile);
@@ -330,7 +371,7 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
         } else {
             messagesContainer.innerHTML += `
-                <div class="flex justify-end mb-4">
+                <div class="flex justify-end mb-4" data-chat-message>
                     <div class="inline-block bg-brand-500 text-white px-4 py-3 rounded-2xl max-w-[75%] whitespace-pre-wrap break-words shadow-lg">
                         ${message}
                     </div>
@@ -414,6 +455,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 throw new Error(data.response || 'Failed to get response.');
             }
 
+            if (data.ephemeral) {
+                setTemporaryChatUi(true);
+            }
+
+            ensureTemporaryChatUi();
+
             if (!window.isTemporaryChat) {
                 decreaseGuestRemainingCount();
             }
@@ -441,7 +488,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const aiMessageId = 'ai-' + Date.now();
 
                 messagesContainer.innerHTML += `
-                    <div class="flex justify-start mb-4">
+                    <div class="flex justify-start mb-4" data-chat-message>
                         <div id="${aiMessageId}" class="inline-block bg-ink-800 text-white px-4 py-3 rounded-2xl max-w-[75%] whitespace-pre-wrap break-words shadow-lg"></div>
                     </div>
                 `;
@@ -458,6 +505,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 await typeText(aiElement, data.response, 15, shouldPinDuringTyping);
                 if (window.isTemporaryChat) {
                     pushEphemeralExchange(message, data.response);
+                    ensureTemporaryChatUi();
                 }
                 if (stopRequested) {
                     showToast('Response stopped');
