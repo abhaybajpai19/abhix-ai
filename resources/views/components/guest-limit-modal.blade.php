@@ -7,7 +7,7 @@
             <svg viewBox="0 0 24 24" class="h-8 w-8 text-white" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 15v2m0-12a4 4 0 0 0-4 4v3h8V9a4 4 0 0 0-4-4z"/><rect x="4" y="11" width="16" height="11" rx="2"/></svg>
         </div>
         <h2 class="mt-5 text-2xl font-bold text-white">You've reached your free limit</h2>
-        <p class="mt-2 text-sm text-slate-400 max-w-sm mx-auto">You've used all 10 free guest messages. Sign in or create a free account to continue chatting with ABX GPT.</p>
+        <p class="mt-2 text-sm text-slate-400 max-w-sm mx-auto">You've used all 10 free messages without an account. Sign in or create a free account to continue — your guest chats will be saved to your account.</p>
         <div class="mt-6 flex flex-col sm:flex-row gap-2 justify-center">
             <button class="btn-primary !px-6" onclick="showAuthPanel('login'); closeModal('guest-limit-modal'); openModal('auth-modal');">Sign in</button>
             <button class="btn-ghost !border !border-white/10" onclick="showAuthPanel('register'); closeModal('guest-limit-modal'); openModal('auth-modal');">Create account</button>

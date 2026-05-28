@@ -25,12 +25,12 @@ class AuthenticatedSessionController extends Controller
      */
     public function store(LoginRequest $request): RedirectResponse|JsonResponse
     {
-        $sessionId = $request->session()->getId();
-
         $request->authenticate();
 
+        ChatController::touchLastLogin();
+
         if ($request->boolean('migrate_guest_chats', true)) {
-            ChatController::migrateGuestChatsToUser($sessionId, (int) Auth::id());
+            ChatController::migrateGuestChatsToUser($request, (int) Auth::id());
         }
 
         $request->session()->regenerate();

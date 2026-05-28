@@ -9,9 +9,14 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class ChatController extends Controller
 {
+    private const GUEST_MESSAGE_LIMIT = 10;
+
+    private const SYSTEM_PROMPT = 'You are ABX GPT, a smart, modern, and helpful AI assistant created by Abhay Bajpai, a Software Engineer and Full Stack Developer from Uttar Pradesh, India. He completed B.Tech in Computer Science Engineering from Rama University Kanpur (2021–2025) with a CGPA of 9.29 and has experience in Laravel, Python, AI tools, machine learning, automation, and full-stack development. IMPORTANT: Only mention Abhay Bajpai or information about the creator when the user specifically asks who created you, who developed you, who owns you, or directly asks about Abhay Bajpai. For normal conversations, behave like a professional AI assistant and do not mention the creator unnecessarily.';
+
     public function newChatGreeting(Request $request)
     {
         $recentGreetings = collect($request->session()->get('recent_greetings', []));
@@ -57,29 +62,39 @@ class ChatController extends Controller
 
     public function index()
     {
-        $sessionId = session()->getId();
-
-        $chats = Chat::query()
-            ->when(
-                Auth::check(),
-                fn ($query) => $query->where('user_id', Auth::id()),
-                fn ($query) => $query->where('session_id', $sessionId)->whereNull('user_id')
-            )
-            ->latest()
-            ->get();
-
         $guestMessageCount = 0;
-        if (! Auth::check()) {
-            $guestMessageCount = Message::whereHas('chat', function ($query) use ($sessionId) {
-                $query->where('session_id', $sessionId)->whereNull('user_id');
-            })->where('role', 'user')->count();
+        $guestChats = [];
+
+        if (Auth::check()) {
+            $chats = Chat::query()
+                ->where('user_id', Auth::id())
+                ->latest()
+                ->get();
+        } else {
+            $chats = collect();
+            $guestChats = session('guest_chats', []);
+            $guestMessageCount = (int) session('guest_user_message_count', 0);
         }
 
-        return view('chat.index', compact('chats', 'guestMessageCount'));
+        return view('chat.index', compact('chats', 'guestChats', 'guestMessageCount'));
     }
 
     public function loadChat($id)
     {
+        if (! Auth::check() && is_string($id) && str_starts_with($id, 'guest-')) {
+            $guestChats = collect(session('guest_chats', []));
+            $chat = $guestChats->firstWhere('id', $id);
+
+            if (! $chat) {
+                abort(404);
+            }
+
+            return response()->json([
+                'chat' => $chat,
+                'ephemeral' => false,
+            ]);
+        }
+
         $chat = Chat::with('messages')->findOrFail($id);
 
         if (! $this->canAccessChat($chat)) {
@@ -96,91 +111,27 @@ class ChatController extends Controller
         $request->validate([
             'message' => 'required|string',
             'chat_id' => 'nullable',
+            'ephemeral' => 'sometimes|boolean',
+            'history' => 'sometimes|array',
+            'history.*.role' => 'required_with:history|in:user,assistant',
+            'history.*.content' => 'required_with:history|string',
         ]);
 
         try {
+            if ($request->boolean('ephemeral')) {
+                return $this->handleEphemeralChat($request);
+            }
+
             if (! Auth::check()) {
-                $sessionId = session()->getId();
-
-                $guestMessageCount = Message::whereHas('chat', function ($query) use ($sessionId) {
-                    $query->where('session_id', $sessionId)->whereNull('user_id');
-                })->where('role', 'user')->count();
-
-                if ($guestMessageCount >= 10) {
-                    return response()->json([
-                        'success' => false,
-                        'limit_reached' => true,
-                        'response' => 'Guest limit reached.',
-                    ], 403);
-                }
+                return $this->handleGuestChat($request);
             }
 
-            $sessionId = session()->getId();
-
-            if ($request->chat_id) {
-                $chat = Chat::findOrFail($request->chat_id);
-                if (! $this->canAccessChat($chat)) {
-                    abort(403);
-                }
-            } else {
-                $chat = Chat::create([
-                    'user_id' => Auth::id(),
-                    'session_id' => Auth::check() ? null : $sessionId,
-                    'title' => substr($request->message, 0, 40),
-                ]);
-            }
-
-            Message::create([
-                'chat_id' => $chat->id,
-                'role' => 'user',
-                'message' => $request->message,
-            ]);
-
-            $messages = [];
-
-            $messages[] = [
-                'role' => 'system',
-                'content' => 'You are ABX GPT, a smart, modern, and helpful AI assistant created by Abhay Bajpai, a Software Engineer and Full Stack Developer from Uttar Pradesh, India. He completed B.Tech in Computer Science Engineering from Rama University Kanpur (2021–2025) with a CGPA of 9.29 and has experience in Laravel, Python, AI tools, machine learning, automation, and full-stack development. IMPORTANT: Only mention Abhay Bajpai or information about the creator when the user specifically asks who created you, who developed you, who owns you, or directly asks about Abhay Bajpai. For normal conversations, behave like a professional AI assistant and do not mention the creator unnecessarily.',
-            ];
-
-            foreach ($chat->messages as $msg) {
-                $messages[] = [
-                    'role' => $msg->role,
-                    'content' => $msg->message,
-                ];
-            }
-
-            $response = Http::withoutVerifying()->withHeaders([
-                'Authorization' => 'Bearer ' . env('GROQ_API_KEY'),
-                'Content-Type' => 'application/json',
-            ])->post('https://api.groq.com/openai/v1/chat/completions', [
-                'model' => 'llama-3.3-70b-versatile',
-                'messages' => $messages,
-                'temperature' => 0.7,
-                'max_tokens' => 1024,
-            ]);
-
-            $data = $response->json();
-
-            $aiResponse = $data['choices'][0]['message']['content'] ?? 'No response generated.';
-
-            Message::create([
-                'chat_id' => $chat->id,
-                'role' => 'assistant',
-                'message' => $aiResponse,
-            ]);
-
-            return response()->json([
-                'success' => true,
-                'chat_id' => $chat->id,
-                'title' => $chat->title,
-                'response' => $aiResponse,
-            ]);
+            return $this->handlePersistedChat($request);
         } catch (\Exception $e) {
-                return response()->json([
-                    'success' => false,
-                    'response' => $e->getMessage(),
-                ], 500);
+            return response()->json([
+                'success' => false,
+                'response' => $e->getMessage(),
+            ], 500);
         }
     }
 
@@ -188,8 +139,9 @@ class ChatController extends Controller
     {
         $request->validate([
             'prompt' => 'nullable|string|max:500',
-            'chat_id' => 'nullable|integer',
+            'chat_id' => 'nullable',
             'image_file' => 'nullable|image|mimes:jpeg,jpg,png,gif,webp|max:5120',
+            'ephemeral' => 'sometimes|boolean',
         ]);
 
         if (! $request->prompt && ! $request->file('image_file')) {
@@ -199,24 +151,28 @@ class ChatController extends Controller
             ], 422);
         }
 
+        if ($request->boolean('ephemeral')) {
+            return response()->json([
+                'success' => false,
+                'response' => 'Image generation is not available in temporary chat.',
+            ], 422);
+        }
+
         try {
             if (! Auth::check()) {
-                $sessionId = session()->getId();
-
-                $guestMessageCount = Message::whereHas('chat', function ($query) use ($sessionId) {
-                    $query->where('session_id', $sessionId)->whereNull('user_id');
-                })->where('role', 'user')->count();
-
-                if ($guestMessageCount >= 10) {
-                    return response()->json([
-                        'success' => false,
-                        'limit_reached' => true,
-                        'response' => 'Guest limit reached.',
-                    ], 403);
+                if ($this->guestLimitReached($request)) {
+                    return $this->guestLimitResponse();
                 }
             }
 
             $sessionId = session()->getId();
+
+            if ($request->chat_id && ! Auth::check() && str_starts_with((string) $request->chat_id, 'guest-')) {
+                return response()->json([
+                    'success' => false,
+                    'response' => 'Image generation for guest chats is not supported yet.',
+                ], 422);
+            }
 
             if ($request->chat_id) {
                 $chat = Chat::findOrFail($request->chat_id);
@@ -224,9 +180,16 @@ class ChatController extends Controller
                     abort(403);
                 }
             } else {
+                if (! Auth::check()) {
+                    return response()->json([
+                        'success' => false,
+                        'response' => 'Please sign in to generate images.',
+                    ], 403);
+                }
+
                 $chat = Chat::create([
                     'user_id' => Auth::id(),
-                    'session_id' => Auth::check() ? null : $sessionId,
+                    'session_id' => null,
                     'title' => substr($request->prompt ?? 'Image generation', 0, 40),
                 ]);
             }
@@ -270,6 +233,7 @@ class ChatController extends Controller
             if ($response->failed()) {
                 $error = $response->json();
                 Log::error('Stability image API failed', ['status' => $response->status(), 'response' => $error]);
+
                 return response()->json([
                     'success' => false,
                     'response' => $error['error']['message'] ?? 'Stability API request failed.',
@@ -297,6 +261,10 @@ class ChatController extends Controller
                 'message' => '__IMAGE__:' . $imageUrl,
             ]);
 
+            if (! Auth::check()) {
+                $this->incrementGuestMessageCount($request);
+            }
+
             return response()->json([
                 'success' => true,
                 'chat_id' => $chat->id,
@@ -317,6 +285,32 @@ class ChatController extends Controller
             'title' => 'required|string|max:120',
         ]);
 
+        if (! Auth::check() && str_starts_with((string) $id, 'guest-')) {
+            $guestChats = session('guest_chats', []);
+            $updated = false;
+
+            foreach ($guestChats as &$chat) {
+                if ($chat['id'] === $id) {
+                    $chat['title'] = trim($request->title);
+                    $updated = true;
+                    break;
+                }
+            }
+            unset($chat);
+
+            if (! $updated) {
+                abort(404);
+            }
+
+            session(['guest_chats' => $guestChats]);
+
+            return response()->json([
+                'success' => true,
+                'chat_id' => $id,
+                'title' => trim($request->title),
+            ]);
+        }
+
         $chat = Chat::findOrFail($id);
         if (! $this->canAccessChat($chat)) {
             abort(403);
@@ -335,16 +329,11 @@ class ChatController extends Controller
 
     public function clearChats(Request $request)
     {
-        $sessionId = session()->getId();
-
-        $query = Chat::query()
-            ->when(
-                Auth::check(),
-                fn ($query) => $query->where('user_id', Auth::id()),
-                fn ($query) => $query->where('session_id', $sessionId)->whereNull('user_id')
-            );
-
-        $query->delete();
+        if (Auth::check()) {
+            Chat::where('user_id', Auth::id())->delete();
+        } else {
+            session()->forget(['guest_chats', 'guest_user_message_count']);
+        }
 
         return response()->json([
             'success' => true,
@@ -353,6 +342,20 @@ class ChatController extends Controller
 
     public function deleteChat($id)
     {
+        if (! Auth::check() && str_starts_with((string) $id, 'guest-')) {
+            $guestChats = collect(session('guest_chats', []))
+                ->reject(fn ($chat) => $chat['id'] === $id)
+                ->values()
+                ->all();
+
+            session(['guest_chats' => $guestChats]);
+
+            return response()->json([
+                'success' => true,
+                'chat_id' => $id,
+            ]);
+        }
+
         $chat = Chat::findOrFail($id);
         if (! $this->canAccessChat($chat)) {
             abort(403);
@@ -366,6 +369,232 @@ class ChatController extends Controller
         ]);
     }
 
+    public static function migrateGuestChatsToUser(Request $request, int $userId): void
+    {
+        $sessionId = $request->session()->getId();
+
+        Chat::where('session_id', $sessionId)
+            ->whereNull('user_id')
+            ->delete();
+
+        $guestChats = $request->session()->pull('guest_chats', []);
+        $request->session()->forget('guest_user_message_count');
+
+        foreach ($guestChats as $guestChat) {
+            $chat = Chat::create([
+                'user_id' => $userId,
+                'session_id' => null,
+                'title' => $guestChat['title'] ?? 'Imported chat',
+            ]);
+
+            foreach ($guestChat['messages'] ?? [] as $message) {
+                Message::create([
+                    'chat_id' => $chat->id,
+                    'role' => $message['role'],
+                    'message' => $message['message'],
+                ]);
+            }
+        }
+    }
+
+    public static function touchLastLogin(): void
+    {
+        if (Auth::check()) {
+            Auth::user()->forceFill(['last_login_at' => now()])->save();
+        }
+    }
+
+    private function handleEphemeralChat(Request $request)
+    {
+        if (! Auth::check() && $this->guestLimitReached($request)) {
+            return $this->guestLimitResponse();
+        }
+
+        $history = collect($request->input('history', []))
+            ->map(fn ($item) => [
+                'role' => $item['role'],
+                'content' => $item['content'],
+            ])
+            ->all();
+
+        $messages = $this->buildGroqMessages($history, $request->message);
+        $aiResponse = $this->callGroq($messages);
+
+        if (! Auth::check()) {
+            $this->incrementGuestMessageCount($request);
+        }
+
+        return response()->json([
+            'success' => true,
+            'ephemeral' => true,
+            'response' => $aiResponse,
+        ]);
+    }
+
+    private function handleGuestChat(Request $request)
+    {
+        if ($this->guestLimitReached($request)) {
+            return $this->guestLimitResponse();
+        }
+
+        $guestChats = session('guest_chats', []);
+        $chatId = $request->chat_id;
+
+        if ($chatId) {
+            $chatIndex = collect($guestChats)->search(fn ($chat) => $chat['id'] === $chatId);
+            if ($chatIndex === false) {
+                abort(404);
+            }
+        } else {
+            $chatId = 'guest-' . Str::uuid();
+            $guestChats[] = [
+                'id' => $chatId,
+                'title' => substr($request->message, 0, 40),
+                'messages' => [],
+            ];
+            $chatIndex = count($guestChats) - 1;
+        }
+
+        $guestChats[$chatIndex]['messages'][] = [
+            'role' => 'user',
+            'message' => $request->message,
+        ];
+
+        $history = collect($guestChats[$chatIndex]['messages'])
+            ->map(fn ($msg) => [
+                'role' => $msg['role'],
+                'content' => $msg['message'],
+            ])
+            ->all();
+
+        $messages = $this->buildGroqMessages(array_slice($history, 0, -1), $request->message);
+        $aiResponse = $this->callGroq($messages);
+
+        $guestChats[$chatIndex]['messages'][] = [
+            'role' => 'assistant',
+            'message' => $aiResponse,
+        ];
+
+        session([
+            'guest_chats' => $guestChats,
+        ]);
+        $this->incrementGuestMessageCount($request);
+
+        return response()->json([
+            'success' => true,
+            'chat_id' => $chatId,
+            'title' => $guestChats[$chatIndex]['title'],
+            'response' => $aiResponse,
+        ]);
+    }
+
+    private function handlePersistedChat(Request $request)
+    {
+        if ($request->chat_id) {
+            $chat = Chat::findOrFail($request->chat_id);
+            if (! $this->canAccessChat($chat)) {
+                abort(403);
+            }
+        } else {
+            $chat = Chat::create([
+                'user_id' => Auth::id(),
+                'session_id' => null,
+                'title' => substr($request->message, 0, 40),
+            ]);
+        }
+
+        Message::create([
+            'chat_id' => $chat->id,
+            'role' => 'user',
+            'message' => $request->message,
+        ]);
+
+        $history = $chat->messages()
+            ->orderBy('id')
+            ->get()
+            ->slice(0, -1)
+            ->map(fn ($msg) => [
+                'role' => $msg->role,
+                'content' => $msg->message,
+            ])
+            ->values()
+            ->all();
+
+        $messages = $this->buildGroqMessages($history, $request->message);
+        $aiResponse = $this->callGroq($messages);
+
+        Message::create([
+            'chat_id' => $chat->id,
+            'role' => 'assistant',
+            'message' => $aiResponse,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'chat_id' => $chat->id,
+            'title' => $chat->title,
+            'response' => $aiResponse,
+        ]);
+    }
+
+    private function buildGroqMessages(array $history, string $userMessage): array
+    {
+        $messages = [
+            ['role' => 'system', 'content' => self::SYSTEM_PROMPT],
+        ];
+
+        foreach ($history as $item) {
+            $messages[] = [
+                'role' => $item['role'],
+                'content' => $item['content'],
+            ];
+        }
+
+        $messages[] = [
+            'role' => 'user',
+            'content' => $userMessage,
+        ];
+
+        return $messages;
+    }
+
+    private function callGroq(array $messages): string
+    {
+        $response = Http::withoutVerifying()->withHeaders([
+            'Authorization' => 'Bearer ' . env('GROQ_API_KEY'),
+            'Content-Type' => 'application/json',
+        ])->post('https://api.groq.com/openai/v1/chat/completions', [
+            'model' => 'llama-3.3-70b-versatile',
+            'messages' => $messages,
+            'temperature' => 0.7,
+            'max_tokens' => 1024,
+        ]);
+
+        $data = $response->json();
+
+        return $data['choices'][0]['message']['content'] ?? 'No response generated.';
+    }
+
+    private function guestLimitReached(Request $request): bool
+    {
+        return (int) $request->session()->get('guest_user_message_count', 0) >= self::GUEST_MESSAGE_LIMIT;
+    }
+
+    private function incrementGuestMessageCount(Request $request): void
+    {
+        $count = (int) $request->session()->get('guest_user_message_count', 0);
+        $request->session()->put('guest_user_message_count', $count + 1);
+    }
+
+    private function guestLimitResponse()
+    {
+        return response()->json([
+            'success' => false,
+            'limit_reached' => true,
+            'response' => 'Guest limit reached.',
+        ], 403);
+    }
+
     private function canAccessChat(Chat $chat): bool
     {
         if (Auth::check()) {
@@ -373,16 +602,6 @@ class ChatController extends Controller
         }
 
         return $chat->session_id === session()->getId() && $chat->user_id === null;
-    }
-
-    public static function migrateGuestChatsToUser(string $sessionId, int $userId): void
-    {
-        Chat::where('session_id', $sessionId)
-            ->whereNull('user_id')
-            ->update([
-                'user_id' => $userId,
-                'session_id' => null,
-            ]);
     }
 
     private function fallbackGreeting(array $recentGreetings): string

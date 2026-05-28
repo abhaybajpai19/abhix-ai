@@ -54,8 +54,12 @@
 document.addEventListener('DOMContentLoaded', () => {
 
     window.currentChatId = null;
+    window.isTemporaryChat = false;
+    window.ephemeralHistory = [];
 
     const form = document.getElementById('chatForm');
+    const temporaryChatBanner = document.getElementById('temporary-chat-banner');
+    const temporaryChatBtn = document.getElementById('temporary-chat-btn');
     const input = document.getElementById('messageInput');
     const messagesContainer = document.getElementById('messagesContainer');
     const chatScrollContainer = document.getElementById('chatMessages');
@@ -107,6 +111,50 @@ document.addEventListener('DOMContentLoaded', () => {
         const current = parseInt(guestCount.textContent || '0', 10);
         guestCount.textContent = String(Math.max(0, current - 1));
     }
+
+    function setTemporaryChatUi(active) {
+        window.isTemporaryChat = active;
+        temporaryChatBanner?.classList.toggle('hidden', !active);
+        temporaryChatBtn?.classList.toggle('!border-violet-400/50', active);
+        temporaryChatBtn?.classList.toggle('!bg-violet-500/15', active);
+        temporaryChatBtn?.classList.toggle('!text-violet-100', active);
+    }
+
+    function pushEphemeralExchange(userMessage, assistantMessage) {
+        window.ephemeralHistory.push({ role: 'user', content: userMessage });
+        window.ephemeralHistory.push({ role: 'assistant', content: assistantMessage });
+    }
+
+    function appendGuestChatToSidebar(chatId, title) {
+        if (!String(chatId).startsWith('guest-')) return;
+        const list = document.getElementById('recent-chats-list');
+        if (!list || document.getElementById(`chat-item-${chatId}`)) return;
+
+        document.getElementById('no-chats-placeholder')?.remove();
+
+        const li = document.createElement('li');
+        li.id = `chat-item-${chatId}`;
+        li.className = 'relative group/chat-item';
+        li.innerHTML = `
+            <button onclick="loadChat('${chatId}')" class="w-full text-left group flex items-center gap-2 rounded-xl pl-3 pr-10 py-2 text-sm transition text-slate-300 hover:bg-white/5 hover:text-white">
+                <svg class="h-4 w-4 text-slate-400 group-hover:text-brand-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a4 4 0 0 1-4 4H8l-5 4V6a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/></svg>
+                <span id="chat-title-${chatId}" class="truncate flex-1">${title}</span>
+            </button>
+        `;
+        list.prepend(li);
+    }
+
+    window.startTemporaryChat = function() {
+        window.currentChatId = null;
+        window.ephemeralHistory = [];
+        setTemporaryChatUi(true);
+        renderNewChatGreeting();
+    };
+
+    window.exitTemporaryChat = function() {
+        setTemporaryChatUi(false);
+        window.startNewChat();
+    };
 
     function setMode(mode) {
         currentMode = mode;
@@ -194,11 +242,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // START NEW CHAT
     window.startNewChat = function() {
-
+        setTemporaryChatUi(false);
         window.currentChatId = null;
-
+        window.ephemeralHistory = [];
         renderNewChatGreeting();
-
     }
 
     // LOAD OLD CHAT
@@ -206,11 +253,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
         try {
 
-            const response = await fetch('/chat/' + chatId);
+            const response = await fetch('/chat/' + encodeURIComponent(chatId));
 
             const data = await response.json();
 
+            setTemporaryChatUi(false);
             window.currentChatId = chatId;
+            window.ephemeralHistory = [];
 
             messagesContainer.innerHTML = '';
 
@@ -332,11 +381,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 options.body = formData;
             } else {
-                options.headers['Content-Type'] = 'application/json';
-                options.body = JSON.stringify({
+                const payload = {
                     message: message,
-                    chat_id: window.currentChatId,
-                });
+                };
+
+                if (window.isTemporaryChat) {
+                    payload.ephemeral = true;
+                    payload.history = window.ephemeralHistory;
+                } else if (window.currentChatId) {
+                    payload.chat_id = window.currentChatId;
+                }
+
+                options.headers['Content-Type'] = 'application/json';
+                options.body = JSON.stringify(payload);
             }
 
             const response = await fetch(endpoint, options);
@@ -357,11 +414,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 throw new Error(data.response || 'Failed to get response.');
             }
 
-            decreaseGuestRemainingCount();
+            if (!window.isTemporaryChat) {
+                decreaseGuestRemainingCount();
+            }
 
             // SAVE CHAT ID
-            if (data.chat_id) {
+            if (data.chat_id && !window.isTemporaryChat) {
+                const isNewGuestChat = String(data.chat_id).startsWith('guest-') && !window.currentChatId;
                 window.currentChatId = data.chat_id;
+                if (isNewGuestChat && data.title) {
+                    appendGuestChatToSidebar(data.chat_id, data.title);
+                }
             }
 
             if (currentMode === 'image' && data.image_url) {
@@ -393,6 +456,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 const aiElement = document.getElementById(aiMessageId);
                 const shouldPinDuringTyping = isNearBottom();
                 await typeText(aiElement, data.response, 15, shouldPinDuringTyping);
+                if (window.isTemporaryChat) {
+                    pushEphemeralExchange(message, data.response);
+                }
                 if (stopRequested) {
                     showToast('Response stopped');
                 }

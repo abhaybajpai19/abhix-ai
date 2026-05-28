@@ -45,11 +45,12 @@ class RegisteredUserController extends Controller
 
         event(new Registered($user));
 
-        $sessionId = $request->session()->getId();
         Auth::login($user);
 
+        ChatController::touchLastLogin();
+
         if ($request->boolean('migrate_guest_chats', true)) {
-            ChatController::migrateGuestChatsToUser($sessionId, (int) $user->id);
+            ChatController::migrateGuestChatsToUser($request, (int) $user->id);
         }
 
         if ($request->expectsJson()) {

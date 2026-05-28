@@ -13,10 +13,23 @@
 
     <div class="flex-1"></div>
 
+    <button
+        id="temporary-chat-btn"
+        type="button"
+        onclick="typeof startTemporaryChat === 'function' && startTemporaryChat()"
+        class="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium border transition
+               text-slate-300 border-white/10 bg-ink-800/50 hover:bg-ink-700 hover:text-white"
+        title="Temporary chat — not saved to your account">
+        <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+        </svg>
+        Temporary chat
+    </button>
+
     @guest
         <div id="guest-limit-pill" class="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs">
             <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h7l-1 8 10-12h-7z"/></svg>
-            <span><span id="guest-remaining-count" class="font-semibold">{{ max(0, 10 - ($guestMessageCount ?? 0)) }}</span> / 10 free chats remaining</span>
+            <span><span id="guest-remaining-count" class="font-semibold">{{ max(0, 10 - ($guestMessageCount ?? 0)) }}</span> / 10 free messages remaining</span>
         </div>
     @endguest
 

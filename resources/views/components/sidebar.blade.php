@@ -31,6 +31,7 @@
 
     <ul id="recent-chats-list" class="space-y-1">
 
+        @auth
         @forelse(($chats ?? []) as $chat)
 
             <li id="chat-item-{{ $chat->id }}" class="relative group/chat-item">
@@ -84,6 +85,61 @@
             </li>
 
         @endforelse
+        @else
+        @forelse(($guestChats ?? []) as $chat)
+
+            <li id="chat-item-{{ $chat['id'] }}" class="relative group/chat-item">
+
+                <button
+                    onclick="loadChat('{{ $chat['id'] }}')"
+                    class="w-full text-left group flex items-center gap-2 rounded-xl pl-3 pr-10 py-2 text-sm transition text-slate-300 hover:bg-white/5 hover:text-white"
+                >
+
+                    <svg class="h-4 w-4 text-slate-400 group-hover:text-brand-300"
+                         viewBox="0 0 24 24"
+                         fill="none"
+                         stroke="currentColor"
+                         stroke-width="2">
+
+                        <path d="M21 15a4 4 0 0 1-4 4H8l-5 4V6a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/>
+
+                    </svg>
+
+                    <span id="chat-title-{{ $chat['id'] }}" class="truncate flex-1">
+                        {{ $chat['title'] }}
+                    </span>
+
+                </button>
+
+                <button type="button"
+                        class="absolute right-1.5 top-1.5 btn-ghost !px-2 opacity-0 group-hover/chat-item:opacity-100 focus:opacity-100"
+                        data-chat-menu-toggle="{{ $chat['id'] }}">
+                    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/>
+                    </svg>
+                </button>
+
+                <div id="chat-menu-{{ $chat['id'] }}" class="hidden absolute right-1 top-10 z-20 card p-1 min-w-32">
+                    <button type="button" class="w-full text-left btn-ghost justify-start" data-chat-rename="{{ $chat['id'] }}">
+                        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
+                        Rename
+                    </button>
+                    <button type="button" class="w-full text-left btn-ghost justify-start text-rose-300 hover:text-rose-200" data-chat-delete="{{ $chat['id'] }}">
+                        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+                        Delete
+                    </button>
+                </div>
+
+            </li>
+
+        @empty
+
+            <li id="no-chats-placeholder" class="text-slate-500 text-sm px-3 py-2">
+                No chats yet
+            </li>
+
+        @endforelse
+        @endauth
 
     </ul>
 
