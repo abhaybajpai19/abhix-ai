@@ -3,6 +3,8 @@
 use App\Http\Controllers\ChatController;
 use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
+use Spatie\Sitemap\SitemapGenerator;
+
 
 Route::get('/', [ChatController::class, 'index'])->name('chat.index');
 Route::post('/chat', [ChatController::class, 'chat'])->name('chat.send');
@@ -20,3 +22,11 @@ Route::middleware('auth')->group(function () {
 });
 
 require __DIR__.'/auth.php';
+Route::get('/generate-sitemap', function () {
+
+    SitemapGenerator::create('https://abhix-ai-production.up.railway.app')
+        ->writeToFile(public_path('sitemap.xml'));
+
+    return "Sitemap generated successfully!";
+
+});
