@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\ChatController;
+use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [ChatController::class, 'index'])->name('chat.index');
@@ -11,3 +12,11 @@ Route::get('/chat/{id}', [ChatController::class, 'loadChat'])->name('chat.load')
 Route::patch('/chat/{id}', [ChatController::class, 'renameChat'])->name('chat.rename');
 Route::delete('/chat', [ChatController::class, 'clearChats'])->name('chat.clear');
 Route::delete('/chat/{id}', [ChatController::class, 'deleteChat'])->name('chat.delete');
+
+Route::middleware('auth')->group(function () {
+    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
+    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
+    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+});
+
+require __DIR__.'/auth.php';
