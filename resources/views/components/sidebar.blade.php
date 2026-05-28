@@ -31,7 +31,7 @@
 
     <ul id="recent-chats-list" class="space-y-1">
 
-        @forelse($chats as $chat)
+        @forelse(($chats ?? []) as $chat)
 
             <li id="chat-item-{{ $chat->id }}" class="relative group/chat-item">
 
