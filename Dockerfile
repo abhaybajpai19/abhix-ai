@@ -23,6 +23,8 @@ RUN composer install --optimize-autoloader
 RUN npm install
 RUN npm run build
 
+RUN chmod +x docker/entrypoint.sh
+
 EXPOSE $PORT
 
-CMD php artisan serve --host=0.0.0.0 --port=$PORT
+ENTRYPOINT ["docker/entrypoint.sh"]
