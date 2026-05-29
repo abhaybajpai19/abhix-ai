@@ -1,4 +1,4 @@
-<div id="auth-modal" class="hidden fixed inset-0 z-50 grid place-items-center bg-black/70 backdrop-blur-md p-4 transition-opacity duration-200 opacity-0">
+<div id="auth-modal" class="hidden fixed inset-0 z-50 grid place-items-center bg-black/70 backdrop-blur-md p-4 transition-opacity duration-200 opacity-0" data-nosnippet>
     <div class="card w-full max-w-md p-7 animate-pop-in relative">
         <button class="absolute top-3 right-3 btn-ghost !px-2" data-close-modal="auth-modal">
             <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>

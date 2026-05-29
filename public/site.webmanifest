@@ -1,0 +1,17 @@
+{
+    "name": "Abhix AI",
+    "short_name": "Abhix AI",
+    "description": "Abhix AI is a powerful AI assistant built with Laravel.",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#07080c",
+    "theme_color": "#5b6cff",
+    "icons": [
+        {
+            "src": "/logo.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "any"
+        }
+    ]
+}
