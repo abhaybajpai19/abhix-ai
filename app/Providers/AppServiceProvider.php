@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Support\StorageLinker;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\URL;
 
@@ -20,6 +21,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        StorageLinker::ensure();
+
         if (app()->environment('production')) {
             URL::forceScheme('https');
         }

@@ -10,6 +10,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script>
         (() => {
             const storedTheme = localStorage.getItem('nova-theme');
@@ -87,28 +89,81 @@
     </style>
     <style>
         html:not(.dark) body {
-            background: #f1f5f9 !important;
-            color: #0f172a !important;
+            background: #dfe6f0 !important;
+            color: #1e293b !important;
+        }
+        html:not(.dark) .pointer-events-none.fixed.inset-0.-z-10 {
+            opacity: 0.45;
+        }
+        html:not(.dark) .pointer-events-none.fixed.inset-0.-z-10 > div {
+            opacity: 0.55;
+        }
+        html:not(.dark) #app-sidebar,
+        html:not(.dark) header {
+            background: rgba(255, 255, 255, 0.82) !important;
+            backdrop-filter: blur(12px);
+            border-color: rgba(15, 23, 42, 0.08) !important;
+        }
+        html:not(.dark) main {
+            background: transparent;
         }
         html:not(.dark) .card {
-            background: rgba(255, 255, 255, 0.85) !important;
-            border-color: rgba(15, 23, 42, 0.12) !important;
-            color: #0f172a !important;
+            background: rgba(255, 255, 255, 0.94) !important;
+            border-color: rgba(15, 23, 42, 0.1) !important;
+            box-shadow: 0 8px 24px -12px rgba(15, 23, 42, 0.15) !important;
         }
-        html:not(.dark) [class*="bg-ink-"] {
-            background-color: rgba(255, 255, 255, 0.82) !important;
+        html:not(.dark) [class*="bg-ink-8"],
+        html:not(.dark) [class*="bg-ink-9"] {
+            background-color: rgba(248, 250, 252, 0.95) !important;
         }
-        html:not(.dark) [class*="text-slate-"] {
-            color: #334155 !important;
+        html:not(.dark) [class*="bg-ink-7"],
+        html:not(.dark) [class*="bg-ink-6"] {
+            background-color: rgba(241, 245, 249, 0.98) !important;
+        }
+        html:not(.dark) [class*="text-slate-4"],
+        html:not(.dark) [class*="text-slate-5"] {
+            color: #64748b !important;
+        }
+        html:not(.dark) [class*="text-slate-3"] {
+            color: #475569 !important;
         }
         html:not(.dark) .text-white {
             color: #0f172a !important;
         }
-        html:not(.dark) .border-white\/10 {
-            border-color: rgba(15, 23, 42, 0.12) !important;
+        html:not(.dark) .border-white\/10,
+        html:not(.dark) .border-white\/15 {
+            border-color: rgba(15, 23, 42, 0.1) !important;
         }
         html:not(.dark) .btn-ghost {
-            color: #334155 !important;
+            color: #475569 !important;
+        }
+        html:not(.dark) .btn-ghost:hover {
+            background: rgba(15, 23, 42, 0.05) !important;
+            color: #0f172a !important;
+        }
+        html:not(.dark) textarea,
+        html:not(.dark) input:not([type="checkbox"]) {
+            color: #0f172a !important;
+        }
+        html:not(.dark) textarea::placeholder {
+            color: #94a3b8 !important;
+        }
+        html:not(.dark) .bg-brand-500 {
+            background: linear-gradient(to bottom right, #5b6cff, #4754e6) !important;
+            color: #fff !important;
+        }
+        html:not(.dark) .bg-brand-500.text-white,
+        html:not(.dark) .bg-brand-500 .text-white {
+            color: #fff !important;
+        }
+        html:not(.dark) [data-chat-message] .bg-ink-800 {
+            background-color: #f1f5f9 !important;
+            color: #0f172a !important;
+        }
+        html:not(.dark) #temporary-chat-banner > div {
+            background: rgba(139, 92, 246, 0.08) !important;
+            border-color: rgba(139, 92, 246, 0.2) !important;
+            color: #5b21b6 !important;
         }
     </style>
     @stack('head')
@@ -161,6 +216,89 @@
             m.classList.add('hidden');
             m.classList.remove('opacity-100');
         };
+
+        const modalIds = ['settings-modal', 'auth-modal', 'guest-limit-modal', 'confirm-delete-modal', 'rename-chat-modal', 'confirm-logout-modal'];
+
+        window.showAlert = (title, text, icon = 'success') => {
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    title,
+                    text,
+                    icon,
+                    confirmButtonColor: '#5b6cff',
+                    background: document.documentElement.classList.contains('dark') ? '#11141b' : '#fff',
+                    color: document.documentElement.classList.contains('dark') ? '#e2e8f0' : '#0f172a',
+                });
+                return;
+            }
+            showToast(text);
+        };
+
+        window.showConfirm = async (title, text, icon = 'warning') => {
+            if (typeof Swal !== 'undefined') {
+                const result = await Swal.fire({
+                    title,
+                    text,
+                    icon,
+                    showCancelButton: true,
+                    confirmButtonColor: '#5b6cff',
+                    cancelButtonColor: '#64748b',
+                    confirmButtonText: 'Yes',
+                    cancelButtonText: 'Cancel',
+                    background: document.documentElement.classList.contains('dark') ? '#11141b' : '#fff',
+                    color: document.documentElement.classList.contains('dark') ? '#e2e8f0' : '#0f172a',
+                });
+                return result.isConfirmed;
+            }
+            return confirm(text);
+        };
+
+        window.updateProfileUi = (user) => {
+            if (!user) return;
+
+            const initials = (user.name || 'User')
+                .split(' ')
+                .slice(0, 2)
+                .map((part) => part[0] || '')
+                .join('')
+                .toUpperCase();
+
+            const avatar = document.getElementById('sidebar-avatar');
+            const name = document.getElementById('sidebar-user-name');
+            const email = document.getElementById('sidebar-user-email');
+            const profileMenuName = document.getElementById('profile-menu-name');
+            const profileMenuEmail = document.getElementById('profile-menu-email');
+            const settingsDisplayName = document.getElementById('settings-display-name');
+            const settingsDisplayEmail = document.getElementById('settings-display-email');
+
+            if (name) name.textContent = user.name || 'User';
+            if (email) email.textContent = user.email || '';
+            if (profileMenuName) profileMenuName.textContent = user.name || 'User';
+            if (profileMenuEmail) profileMenuEmail.textContent = user.email || '';
+            if (settingsDisplayName) settingsDisplayName.textContent = user.name || 'User';
+            if (settingsDisplayEmail) settingsDisplayEmail.textContent = user.email || '';
+
+            if (avatar) {
+                if (user.profile_photo_url) {
+                    avatar.className = 'h-9 w-9 rounded-full overflow-hidden bg-transparent';
+                    avatar.innerHTML = `<img src="${user.profile_photo_url}?t=${Date.now()}" alt="Profile photo" class="h-full w-full object-cover" />`;
+                } else {
+                    avatar.className = 'h-9 w-9 rounded-full overflow-hidden bg-gradient-to-br from-emerald-400 to-brand-500 grid place-items-center text-white text-sm font-bold';
+                    avatar.textContent = initials || 'U';
+                }
+            }
+        };
+
+        document.addEventListener('keydown', (event) => {
+            if (event.key !== 'Escape') return;
+            modalIds.forEach((id) => {
+                const modal = document.getElementById(id);
+                if (modal && !modal.classList.contains('hidden')) {
+                    closeModal(id);
+                }
+            });
+        });
+
         document.querySelectorAll('[data-open-modal]').forEach(b => b.addEventListener('click', () => openModal(b.dataset.openModal)));
         document.querySelectorAll('[data-close-modal]').forEach(b => b.addEventListener('click', () => closeModal(b.dataset.closeModal)));
 
@@ -343,6 +481,12 @@
             showAuthPanel(queryPanel);
             openModal('auth-modal');
         }
+
+        @if (session('status') === 'profile-updated')
+            showAlert('Profile updated', 'Your profile was saved successfully.', 'success');
+        @elseif (session('status') === 'password-updated')
+            showAlert('Password updated', 'Your password was changed successfully.', 'success');
+        @endif
     </script>
     @stack('scripts')
 </body>

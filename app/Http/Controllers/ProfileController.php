@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\ProfileUpdateRequest;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -27,7 +28,7 @@ class ProfileController extends Controller
     /**
      * Update the user's profile information.
      */
-    public function update(ProfileUpdateRequest $request): RedirectResponse
+    public function update(ProfileUpdateRequest $request): RedirectResponse|JsonResponse
     {
         $validated = $request->validated();
 
@@ -69,7 +70,23 @@ class ProfileController extends Controller
 
         $request->user()->save();
 
-        return Redirect::route('profile.edit')->with('status', 'profile-updated');
+        if ($request->expectsJson()) {
+            $user = $request->user()->fresh();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Profile updated successfully.',
+                'user' => [
+                    'name' => $user->name,
+                    'email' => $user->email,
+                    'profile_photo_url' => $user->profile_photo_path
+                        ? Storage::url($user->profile_photo_path)
+                        : null,
+                ],
+            ]);
+        }
+
+        return Redirect::route('chat.index')->with('status', 'profile-updated');
     }
 
     /**

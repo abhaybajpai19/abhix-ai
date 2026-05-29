@@ -1,0 +1,8 @@
+[build]
+builder = "dockerfile"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+preDeployCommand = "php artisan migrate --force"
+startCommand = "/bin/sh -c \"php artisan storage:link --force && php artisan serve --host=0.0.0.0 --port=$PORT\""
+restartPolicyType = "ON_FAILURE"

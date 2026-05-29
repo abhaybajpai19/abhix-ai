@@ -17,13 +17,13 @@
         id="temporary-chat-btn"
         type="button"
         onclick="typeof startTemporaryChat === 'function' && startTemporaryChat()"
-        class="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium border transition
+        class="flex items-center gap-1.5 px-2 sm:px-3 py-1.5 rounded-full text-xs font-medium border transition shrink-0
                text-slate-300 border-white/10 bg-ink-800/50 hover:bg-ink-700 hover:text-white"
         title="Temporary chat — not saved to your account">
-        <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <svg class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
         </svg>
-        Temporary chat
+        <span class="hidden min-[420px]:inline">Temporary</span>
     </button>
 
     @guest

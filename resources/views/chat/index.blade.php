@@ -4,7 +4,7 @@
 
 @section('content')
     <div class="flex flex-col h-full">
-    <h1 class="shrink-0 text-center text-sm font-semibold text-slate-300 py-2 border-b border-white/10 bg-ink-900/40">
+    <h1 class="sr-only sm:block sm:shrink-0 text-center text-sm font-semibold text-slate-300 py-2 border-b border-white/10 bg-ink-900/40">
         Welcome to Abhix AI
     </h1>
     <div class="flex flex-col flex-1 min-h-0">

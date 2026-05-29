@@ -23,8 +23,10 @@ RUN composer install --optimize-autoloader
 RUN npm install
 RUN npm run build
 
-RUN chmod +x docker/entrypoint.sh
+RUN php artisan storage:link --force || true
+
+RUN sed -i 's/\r$//' docker/entrypoint.sh && chmod +x docker/entrypoint.sh
 
 EXPOSE $PORT
 
-ENTRYPOINT ["docker/entrypoint.sh"]
+ENTRYPOINT ["/bin/sh", "/app/docker/entrypoint.sh"]
